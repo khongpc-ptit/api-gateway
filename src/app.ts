@@ -1,10 +1,21 @@
+import cors from '@fastify/cors';
 import fastify, { FastifyInstance, FastifyServerOptions } from 'fastify';
 import { EnvConfig, loadEnv } from './config/env.js';
+import { PublicKeyStore, getPublicKeyStore } from './config/public-keys.js';
 import { errorHandler, notFoundHandler } from './errors/error-handler.js';
+import { createJwtVerifyHook } from './hooks/jwt-verify.js';
 import { requestIdHook } from './hooks/request-id.js';
+import { routeGuardHook } from './hooks/route-guard.js';
+import { stripSpoofedHeadersHook } from './hooks/strip-headers.js';
+import { getCorsOptions } from './plugins/cors.js';
 
-export function buildApp(opts?: FastifyServerOptions, envOverride?: EnvConfig): FastifyInstance {
+export interface BuildAppOptions extends FastifyServerOptions {
+  publicKeyStore?: PublicKeyStore;
+}
+
+export function buildApp(opts?: BuildAppOptions, envOverride?: EnvConfig): FastifyInstance {
   const env = envOverride || loadEnv();
+  const publicKeyStore = opts?.publicKeyStore || getPublicKeyStore(env.JWT_PUBLIC_KEYS_JSON);
 
   const defaultLoggerConfig = {
     level: env.LOG_LEVEL,
@@ -21,14 +32,26 @@ export function buildApp(opts?: FastifyServerOptions, envOverride?: EnvConfig): 
     ...opts,
   });
 
-  // 1. Hook: Request ID & Trace ID injection
-  app.addHook('onRequest', requestIdHook);
+  // 1. CORS plugin registration (BA - SOA.md §17)
+  app.register(cors, getCorsOptions(env));
 
-  // 2. Global Error Handlers (conforming strictly to BA - SOA.md §3 & §10)
+  // 2. Lifecycle Hooks: onRequest
+  // 2.1. Request ID & Trace ID injection
+  app.addHook('onRequest', requestIdHook);
+  // 2.2. Strip spoofed client headers (BA - SOA.md §2 & §4)
+  app.addHook('onRequest', stripSpoofedHeadersHook);
+  // 2.3. Route Guard: Block /internal/** & GET plots/:id/summary (BA - SOA.md §4, §15)
+  app.addHook('onRequest', routeGuardHook);
+
+  // 3. Lifecycle Hooks: preHandler
+  // 3.1. JWT Verification on protected routes (BA - SOA.md §4, §19)
+  app.addHook('preHandler', createJwtVerifyHook(env, publicKeyStore));
+
+  // 4. Global Error Handlers (conforming strictly to BA - SOA.md §3 & §10)
   app.setErrorHandler(errorHandler);
   app.setNotFoundHandler(notFoundHandler);
 
-  // 3. Health Check Endpoint
+  // 5. Health Check Endpoint
   app.get('/health', async (_request, reply) => {
     return reply.status(200).send({
       status: 'UP',

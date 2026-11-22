@@ -1,10 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { buildApp } from '../../src/app.js';
+import { PublicKeyStore } from '../../src/config/public-keys.js';
 import { ERROR_CODES } from '../../src/constants/error-codes.js';
 import { AppError } from '../../src/errors/app-error.js';
+import { signTestJwt, TEST_KEY_PAIR_1 } from '../helpers/token-helper.js';
 
 describe('Base Gateway Integration Tests', () => {
-  const app = buildApp({ logger: false });
+  const publicKeyStore = new PublicKeyStore();
+  publicKeyStore.addKey('test-kid-1', TEST_KEY_PAIR_1.publicKeyPem);
+
+  const app = buildApp({ logger: false, publicKeyStore });
+  const validAuthHeader = `Bearer ${signTestJwt({ kid: 'test-kid-1' })}`;
 
   // Add dummy routes to test error handling
   app.get('/test/app-error', async () => {
@@ -110,6 +116,9 @@ describe('Base Gateway Integration Tests', () => {
     const response = await app.inject({
       method: 'GET',
       url: '/test/app-error',
+      headers: {
+        authorization: validAuthHeader,
+      },
     });
 
     expect(response.statusCode).toBe(401);
@@ -128,6 +137,9 @@ describe('Base Gateway Integration Tests', () => {
     const response = await app.inject({
       method: 'GET',
       url: '/test/account-not-active',
+      headers: {
+        authorization: validAuthHeader,
+      },
     });
 
     expect(response.statusCode).toBe(403);
@@ -146,6 +158,9 @@ describe('Base Gateway Integration Tests', () => {
     const response = await app.inject({
       method: 'GET',
       url: '/test/unexpected-error',
+      headers: {
+        authorization: validAuthHeader,
+      },
     });
 
     expect(response.statusCode).toBe(500);
@@ -167,6 +182,9 @@ describe('Base Gateway Integration Tests', () => {
     const response = await app.inject({
       method: 'POST',
       url: '/test/validation-error',
+      headers: {
+        authorization: validAuthHeader,
+      },
       payload: {}, // Missing required 'name'
     });
 
