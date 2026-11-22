@@ -70,6 +70,11 @@ export class MockUserService {
           return res.end(JSON.stringify({ error: 'Mock user service error' }));
         }
 
+        if (url.startsWith('/api/v1/')) {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          return res.end(JSON.stringify({ message: 'User service mock response', url }));
+        }
+
         if (!accountId) {
           res.writeHead(404, { 'Content-Type': 'application/json' });
           return res.end(JSON.stringify({ message: 'Account not found' }));
