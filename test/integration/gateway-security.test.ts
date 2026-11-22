@@ -2,13 +2,18 @@ import { describe, expect, it } from 'vitest';
 import { buildApp } from '../../src/app.js';
 import { PublicKeyStore } from '../../src/config/public-keys.js';
 import { ERROR_CODES } from '../../src/constants/error-codes.js';
+import { DummyAccessStateClient } from '../helpers/mock-user-service.js';
 import { signTestJwt, TEST_KEY_PAIR_1 } from '../helpers/token-helper.js';
 
 describe('Gateway Edge Security Tests (BA - SOA.md §2, §4, §15, §17)', () => {
   const publicKeyStore = new PublicKeyStore();
   publicKeyStore.addKey('test-kid-1', TEST_KEY_PAIR_1.publicKeyPem);
 
-  const app = buildApp({ logger: false, publicKeyStore });
+  const app = buildApp({
+    logger: false,
+    publicKeyStore,
+    accessStateClient: new DummyAccessStateClient(),
+  });
 
   // Add dummy endpoint to inspect stripped headers
   app.get('/health/echo-headers', async (request, reply) => {

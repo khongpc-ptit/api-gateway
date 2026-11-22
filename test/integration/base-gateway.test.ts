@@ -3,13 +3,18 @@ import { buildApp } from '../../src/app.js';
 import { PublicKeyStore } from '../../src/config/public-keys.js';
 import { ERROR_CODES } from '../../src/constants/error-codes.js';
 import { AppError } from '../../src/errors/app-error.js';
+import { DummyAccessStateClient } from '../helpers/mock-user-service.js';
 import { signTestJwt, TEST_KEY_PAIR_1 } from '../helpers/token-helper.js';
 
 describe('Base Gateway Integration Tests', () => {
   const publicKeyStore = new PublicKeyStore();
   publicKeyStore.addKey('test-kid-1', TEST_KEY_PAIR_1.publicKeyPem);
 
-  const app = buildApp({ logger: false, publicKeyStore });
+  const app = buildApp({
+    logger: false,
+    publicKeyStore,
+    accessStateClient: new DummyAccessStateClient(),
+  });
   const validAuthHeader = `Bearer ${signTestJwt({ kid: 'test-kid-1' })}`;
 
   // Add dummy routes to test error handling
