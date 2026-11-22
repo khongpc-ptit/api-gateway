@@ -31,6 +31,19 @@ export function errorHandler(
     status = error.status;
     code = error.code;
     message = error.message;
+  } else if (
+    ('code' in error &&
+      (error.code === 'FST_REPLY_FROM_INTERNAL_SERVER_ERROR' ||
+        error.code === 'ECONNREFUSED' ||
+        error.code === 'UND_ERR_CONNECT_TIMEOUT' ||
+        error.code === 'UND_ERR_SOCKET')) ||
+    error.message?.includes('ECONNREFUSED') ||
+    error.message?.includes('connect ECONNREFUSED')
+  ) {
+    // BA - SOA.md §3: Upstream dependency down or unreachable
+    status = 503;
+    code = ERROR_CODES.DEPENDENCY_UNAVAILABLE;
+    message = 'Upstream dependency unavailable';
   } else if ('validation' in error && error.validation) {
     status = 400;
     code = ERROR_CODES.VALIDATION_ERROR;

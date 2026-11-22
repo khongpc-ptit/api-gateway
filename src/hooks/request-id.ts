@@ -22,5 +22,6 @@ export async function requestIdHook(request: FastifyRequest, reply: FastifyReply
   }
 
   request.traceId = traceId;
+  request.headers['x-request-id'] = traceId;
   reply.header('x-request-id', traceId);
 }
