@@ -3,19 +3,23 @@ import fastify, { FastifyInstance, FastifyServerOptions } from 'fastify';
 import { EnvConfig, loadEnv } from './config/env.js';
 import { PublicKeyStore, getPublicKeyStore } from './config/public-keys.js';
 import { errorHandler, notFoundHandler } from './errors/error-handler.js';
+import { createAccessStateHook } from './hooks/access-state.js';
 import { createJwtVerifyHook } from './hooks/jwt-verify.js';
 import { requestIdHook } from './hooks/request-id.js';
 import { routeGuardHook } from './hooks/route-guard.js';
 import { stripSpoofedHeadersHook } from './hooks/strip-headers.js';
 import { getCorsOptions } from './plugins/cors.js';
+import { AccessStateClient } from './services/access-state.client.js';
 
 export interface BuildAppOptions extends FastifyServerOptions {
   publicKeyStore?: PublicKeyStore;
+  accessStateClient?: AccessStateClient;
 }
 
 export function buildApp(opts?: BuildAppOptions, envOverride?: EnvConfig): FastifyInstance {
   const env = envOverride || loadEnv();
   const publicKeyStore = opts?.publicKeyStore || getPublicKeyStore(env.JWT_PUBLIC_KEYS_JSON);
+  const accessStateClient = opts?.accessStateClient || new AccessStateClient(env);
 
   const defaultLoggerConfig = {
     level: env.LOG_LEVEL,
@@ -46,6 +50,8 @@ export function buildApp(opts?: BuildAppOptions, envOverride?: EnvConfig): Fasti
   // 3. Lifecycle Hooks: preHandler
   // 3.1. JWT Verification on protected routes (BA - SOA.md §4, §19)
   app.addHook('preHandler', createJwtVerifyHook(env, publicKeyStore));
+  // 3.2. Real-time Access State Enforcement (BA - SOA.md §4)
+  app.addHook('preHandler', createAccessStateHook(accessStateClient));
 
   // 4. Global Error Handlers (conforming strictly to BA - SOA.md §3 & §10)
   app.setErrorHandler(errorHandler);

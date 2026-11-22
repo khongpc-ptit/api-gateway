@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { buildApp } from '../../src/app.js';
 import { PublicKeyStore } from '../../src/config/public-keys.js';
 import { ERROR_CODES } from '../../src/constants/error-codes.js';
+import { DummyAccessStateClient } from '../helpers/mock-user-service.js';
 import {
   generateRsaKeyPair,
   signTestJwt,
@@ -15,7 +16,11 @@ describe('JWT RS256 Verification & Multi-kid Tests (BA - SOA.md §4, §16, §17,
   publicKeyStore.addKey('test-kid-1', TEST_KEY_PAIR_1.publicKeyPem);
   publicKeyStore.addKey('test-kid-2', TEST_KEY_PAIR_2.publicKeyPem);
 
-  const app = buildApp({ logger: false, publicKeyStore });
+  const app = buildApp({
+    logger: false,
+    publicKeyStore,
+    accessStateClient: new DummyAccessStateClient(),
+  });
 
   // Add dummy protected and public endpoints for verification
   app.get('/api/v1/users/me', async (request, reply) => {
